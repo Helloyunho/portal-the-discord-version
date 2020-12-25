@@ -48,6 +48,9 @@ export class Game {
   player: Player
   portals: Portals
   props: Array<Door | Button>
+  waitingForBluePortalDirection = false
+  waitingForOrangePortalDirection = false
+  messageID?: string
 
   constructor(
     world: World,
@@ -60,7 +63,8 @@ export class Game {
     this.player = player
     this.portals = portals
     this.props = props
-    if (this.toString().length > 2048 || this.toString().length <= 0) {
+
+    if (this.toString().length > 200 || this.toString().length <= 0) {
       throw new Error('World is too big or too small.')
     }
 
@@ -77,6 +81,10 @@ export class Game {
       throw new Error('Player is out of world.')
     }
 
+    if (!this.arePortalsReal) {
+      throw new Error('Portals are not in the world (or set wrong).')
+    }
+
     this.playWorld.field[this.player.position.y][this.player.position.x] =
       PropTypes.PLAYER
   }
@@ -86,6 +94,50 @@ export class Game {
       ? this.world.field[this.player.position.y][this.player.position.x] !==
           undefined
       : false
+  }
+
+  get arePortalsReal() {
+    if (
+      this.portals.blue !== null &&
+      this.portals.orange !== null &&
+      !this.portalsAreInTheWorld
+    ) {
+      return false
+    }
+
+    const blueTest =
+      this.portals.blue !== null
+        ? this.world.field[this.portals.blue.y][this.portals.blue.x] ===
+          PropTypes.BLUE_PORTAL
+        : true
+
+    const orangeTest =
+      this.portals.orange !== null
+        ? this.world.field[this.portals.orange.y][this.portals.orange.x] ===
+          PropTypes.ORANGE_PORTAL
+        : true
+
+    return blueTest && orangeTest
+  }
+
+  get portalsAreInTheWorld() {
+    const blueTest =
+      this.portals.blue !== null
+        ? this.world.field[this.portals.blue.y] !== undefined
+          ? this.world.field[this.portals.blue.y][this.portals.blue.x] !==
+            undefined
+          : false
+        : false
+
+    const orangeTest =
+      this.portals.orange !== null
+        ? this.world.field[this.portals.orange.y] !== undefined
+          ? this.world.field[this.portals.orange.y][this.portals.orange.x] !==
+            undefined
+          : false
+        : false
+
+    return blueTest && orangeTest
   }
 
   toString() {
@@ -142,7 +194,7 @@ export class Game {
         this.player.position.x
       ] = this.world.field[this.player.position.y][this.player.position.x]
       switch (direction) {
-        case Directions.UP:
+        case Directions.UP: {
           this.player.position.y = this.player.position.y - 1
           if (
             this.playWorld.field[this.player.position.y][
@@ -164,7 +216,8 @@ export class Game {
               this.portals.blue?.y ?? this.player.position.y
           }
           break
-        case Directions.DOWN:
+        }
+        case Directions.DOWN: {
           this.player.position.y = this.player.position.y + 1
           if (
             this.playWorld.field[this.player.position.y][
@@ -186,7 +239,8 @@ export class Game {
               this.portals.blue?.y ?? this.player.position.y
           }
           break
-        case Directions.LEFT:
+        }
+        case Directions.LEFT: {
           this.player.position.x = this.player.position.x - 1
           if (
             this.playWorld.field[this.player.position.y][
@@ -208,7 +262,8 @@ export class Game {
               this.portals.blue?.y ?? this.player.position.y
           }
           break
-        case Directions.RIGHT:
+        }
+        case Directions.RIGHT: {
           this.player.position.x = this.player.position.x + 1
           if (
             this.playWorld.field[this.player.position.y][
@@ -230,6 +285,7 @@ export class Game {
               this.portals.blue?.y ?? this.player.position.y
           }
           break
+        }
         default:
           return false
       }
@@ -239,5 +295,106 @@ export class Game {
     } else {
       return false
     }
+  }
+
+  shootPortal(direction: Directions) {
+    if (!this.playerIsInTheWorld) return
+
+    let portal = this.waitingForBluePortalDirection
+      ? this.portals.blue
+      : this.portals.orange
+
+    if (portal !== null) {
+      if (
+        [PropTypes.BLUE_PORTAL, PropTypes.ORANGE_PORTAL].includes(
+          this.world.field[portal.y][portal.x]
+        )
+      ) {
+        this.playWorld.field[portal.y][portal.x] = PropTypes.NONE
+      } else {
+        this.playWorld.field[portal.y][portal.x] = this.world.field[portal.y][
+          portal.x
+        ]
+      }
+    }
+
+    switch (direction) {
+      case Directions.UP: {
+        for (let y = this.player.position.y; y >= 0; y--) {
+          if (this.world.field[y][this.player.position.x] === PropTypes.WALL) {
+            if (
+              this.world.field[y + 1][this.player.position.x] === PropTypes.NONE
+            ) {
+              portal = {
+                x: this.player.position.x,
+                y: y + 1
+              }
+            }
+            break
+          }
+        }
+        break
+      }
+      case Directions.DOWN: {
+        for (let y = this.player.position.y; y < this.world.size.height; y++) {
+          if (this.world.field[y][this.player.position.x] === PropTypes.WALL) {
+            if (
+              this.world.field[y - 1][this.player.position.x] === PropTypes.NONE
+            ) {
+              portal = {
+                x: this.player.position.x,
+                y: y - 1
+              }
+            }
+            break
+          }
+        }
+        break
+      }
+      case Directions.LEFT: {
+        for (let x = this.player.position.x; x >= 0; x--) {
+          if (this.world.field[this.player.position.y][x] === PropTypes.WALL) {
+            if (
+              this.world.field[this.player.position.y][x + 1] === PropTypes.NONE
+            ) {
+              portal = {
+                x: x + 1,
+                y: this.player.position.y
+              }
+            }
+            break
+          }
+        }
+        break
+      }
+      case Directions.RIGHT: {
+        for (let x = this.player.position.x; x < this.world.size.width; x++) {
+          if (this.world.field[this.player.position.y][x] === PropTypes.WALL) {
+            if (
+              this.world.field[this.player.position.y][x - 1] === PropTypes.NONE
+            ) {
+              portal = {
+                x: x - 1,
+                y: this.player.position.y
+              }
+            }
+            break
+          }
+        }
+        break
+      }
+      default:
+        return
+    }
+
+    if (portal !== null) {
+      this.playWorld.field[portal.y][portal.x] = this
+        .waitingForBluePortalDirection
+        ? PropTypes.BLUE_PORTAL
+        : PropTypes.ORANGE_PORTAL
+    }
+
+    this.waitingForBluePortalDirection = false
+    this.waitingForOrangePortalDirection = false
   }
 }

@@ -39,3 +39,6 @@ export interface Position {
 }
 
 export const MovementEmojis = ['⬆', '⬇', '⬅', '➡']
+export const PortalEmojis = ['🔵', '🟠']
+export const BluePortalEmoji = '🔵'
+export const OrangePortalEmoji = '🟠'
