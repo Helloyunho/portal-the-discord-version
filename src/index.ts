@@ -1,14 +1,16 @@
 import {
   Client,
+  Embed,
   Intents,
   Message,
   MessageReaction,
   User
-} from 'https://raw.githubusercontent.com/Helloyunho/harmony/main/mod.ts'
+} from 'https://raw.githubusercontent.com/Helloyunho/harmony/reaction/mod.ts'
 import { DISCORD_TOKEN } from '../config.ts'
 import { Game } from './structures/game.ts'
-import { PropTypes, PortalgunStates } from './types/other.ts'
+import { PropTypes, PortalgunStates, MovementEmojis } from './types/other.ts'
 import { Directions, Player } from './types/player.ts'
+import { Portals } from './types/props.ts'
 import { World } from './types/world.ts'
 
 const GamePerUser: { [key: string]: Game } = {}
@@ -30,8 +32,8 @@ class Portal extends Client {
       const world: World = {
         field: [],
         size: {
-          width: 27,
-          height: 19
+          width: 20,
+          height: 12
         }
       }
 
@@ -41,8 +43,15 @@ class Portal extends Client {
           if (i === 2) {
             row.push(PropTypes.WALL)
             continue
+          } else if (i === 1 && l === 0) {
+            row.push(PropTypes.BLUE_PORTAL)
+            continue
+          } else if (i === 3 && l === 10) {
+            row.push(PropTypes.ORANGE_PORTAL)
+            continue
+          } else {
+            row.push(PropTypes.NONE)
           }
-          row.push(PropTypes.NONE)
         }
         world.field.push(row)
       }
@@ -55,9 +64,30 @@ class Portal extends Client {
         portalgun: PortalgunStates.NONE
       }
 
-      const game = new Game(world, player)
+      const portals: Portals = {
+        blue: {
+          x: 1,
+          y: 0
+        },
+        orange: {
+          x: 3,
+          y: 10
+        }
+      }
+
+      const game = new Game(world, player, portals, [])
       GamePerUser[message.author.id] = game
-      message.channel.send(game.toString())
+      console.log(game.toString())
+
+      const embed = new Embed({
+        title: 'Portal: The Discord Version',
+        description: game.toString()
+      })
+      const sentMessage = await message.channel.send(embed)
+
+      MovementEmojis.forEach((emoji) => {
+        sentMessage.addReaction(emoji)
+      })
     }
   }
 
@@ -66,13 +96,35 @@ class Portal extends Client {
       return
     }
 
-    const gameMessage = GamePerUser[user.id]
+    const game = GamePerUser[user.id]
 
-    switch (reaction.emoji.name) {
-      case '⬆️':
-        reaction.message
-        gameMessage.goTo(Directions.UP)
-        reaction.message.edit(gameMessage.toString())
+    if (MovementEmojis.includes(reaction.emoji.name)) {
+      switch (reaction.emoji.name) {
+        case '⬆':
+          reaction.message.removeReaction(reaction.emoji, user)
+          game.goTo(Directions.UP)
+          break
+        case '⬇':
+          reaction.message.removeReaction(reaction.emoji, user)
+          game.goTo(Directions.DOWN)
+          break
+        case '⬅':
+          reaction.message.removeReaction(reaction.emoji, user)
+          game.goTo(Directions.LEFT)
+          break
+        case '➡':
+          reaction.message.removeReaction(reaction.emoji, user)
+          game.goTo(Directions.RIGHT)
+          break
+        default:
+          return
+      }
+
+      const embed = new Embed({
+        title: 'Portal: The Discord Version',
+        description: game.toString()
+      })
+      reaction.message.edit(embed)
     }
   }
 }

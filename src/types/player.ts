@@ -1,9 +1,5 @@
 import { PortalgunStates } from './other.ts'
-
-export interface PlayerPosition {
-  x: number
-  y: number
-}
+import { Position } from './other.ts'
 
 export enum Directions {
   UP = 0,
@@ -13,6 +9,6 @@ export enum Directions {
 }
 
 export interface Player {
-  position: PlayerPosition
+  position: Position
   portalgun: PortalgunStates
 }

@@ -32,3 +32,10 @@ export enum PortalgunStates {
   ORANGE_ONLY = 2,
   ALL = 3
 }
+
+export interface Position {
+  x: number
+  y: number
+}
+
+export const MovementEmojis = ['⬆', '⬇', '⬅', '➡']
