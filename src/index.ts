@@ -5,7 +5,7 @@ import {
   Message,
   MessageReaction,
   User
-} from 'https://raw.githubusercontent.com/Helloyunho/harmony/reaction/mod.ts'
+} from 'https://raw.githubusercontent.com/harmony-org/harmony/main/mod.ts'
 import { DISCORD_TOKEN } from '../config.ts'
 import { Game } from './structures/game.ts'
 import {
@@ -13,7 +13,8 @@ import {
   PortalgunStates,
   MovementEmojis,
   BluePortalEmoji,
-  OrangePortalEmoji
+  OrangePortalEmoji,
+  PortalEmojis
 } from './types/other.ts'
 import { Directions, Player } from './types/player.ts'
 import { Portals } from './types/props.ts'
@@ -21,12 +22,41 @@ import { World } from './types/world.ts'
 
 const GamePerUser: { [key: string]: Game } = {}
 
+const embedMaker = (game: Game) => {
+  const portalgunState = game.player.portalgun
+
+  return new Embed({
+    title: 'Portal: The Discord Version',
+    description: game.toString(),
+    fields: [
+      {
+        name: 'Health',
+        value: game.health.toString(),
+        inline: true
+      },
+      {
+        name: 'Portalgun',
+        value:
+          portalgunState !== PortalgunStates.NONE
+            ? portalgunState !== PortalgunStates.BLUE_ONLY
+              ? portalgunState !== PortalgunStates.ORANGE_ONLY
+                ? PortalEmojis.join(' ')
+                : OrangePortalEmoji
+              : BluePortalEmoji
+            : '⚫️',
+        inline: true
+      }
+    ]
+  })
+}
+
 class Portal extends Client {
   constructor(...args: any[]) {
     super(...args)
     this.on('ready', this.ready)
     this.on('messageCreate', this.message)
     this.on('messageReactionAdd', this.messageReactionAdd)
+    this.on('messageReactionRemove', this.messageReactionRemove)
   }
 
   ready() {
@@ -49,6 +79,8 @@ class Portal extends Client {
           if (i === 2) {
             row.push(PropTypes.WALL)
             continue
+          } else if (i === 5) {
+            row.push(PropTypes.GOO)
           } else if (i === 1 && l === 0) {
             row.push(PropTypes.BLUE_PORTAL)
             continue
@@ -67,7 +99,8 @@ class Portal extends Client {
           x: 1,
           y: 1
         },
-        portalgun: PortalgunStates.ALL
+        portalgun: PortalgunStates.ALL,
+        health: 100
       }
 
       const portals: Portals = {
@@ -84,24 +117,35 @@ class Portal extends Client {
       const game = new Game(world, player, portals, [])
       GamePerUser[message.author.id] = game
 
-      const embed = new Embed({
-        title: 'Portal: The Discord Version',
-        description: game.toString()
-      })
+      const embed = embedMaker(game)
       const sentMessage = await message.channel.send(embed)
+
+      game.on('healthChange', (_health: number) => {
+        const embed = embedMaker(game)
+        sentMessage.edit(embed)
+      })
+
+      game.on('dead', () => {
+        game.close()
+        delete GamePerUser[message.author.id]
+
+        message.channel.send('You died! And the game is closed.')
+      })
 
       for (const emoji of MovementEmojis) {
         await sentMessage.addReaction(emoji)
       }
 
       if (game.player.portalgun === PortalgunStates.BLUE_ONLY) {
-        sentMessage.addReaction(BluePortalEmoji)
+        await sentMessage.addReaction(BluePortalEmoji)
       } else if (game.player.portalgun === PortalgunStates.ORANGE_ONLY) {
-        sentMessage.addReaction(OrangePortalEmoji)
+        await sentMessage.addReaction(OrangePortalEmoji)
       } else if (game.player.portalgun === PortalgunStates.ALL) {
         await sentMessage.addReaction(BluePortalEmoji)
-        sentMessage.addReaction(OrangePortalEmoji)
+        await sentMessage.addReaction(OrangePortalEmoji)
       }
+
+      sentMessage.addReaction('🛑')
     }
   }
 
@@ -115,6 +159,13 @@ class Portal extends Client {
     }
 
     const game = GamePerUser[user.id]
+
+    if (reaction.emoji.name === '🛑') {
+      game.close()
+      delete GamePerUser[user.id]
+
+      reaction.message.channel.send('Game has been ended.')
+    }
 
     if (
       reaction.emoji.name === BluePortalEmoji &&
@@ -179,10 +230,7 @@ class Portal extends Client {
       }
       game.shootPortal(direction)
 
-      const embed = new Embed({
-        title: 'Portal: The Discord Version',
-        description: game.toString()
-      })
+      const embed = embedMaker(game)
       reaction.message.edit(embed)
       return
     }
@@ -213,11 +261,36 @@ class Portal extends Client {
           return
       }
 
-      const embed = new Embed({
-        title: 'Portal: The Discord Version',
-        description: game.toString()
-      })
+      const embed = embedMaker(game)
       reaction.message.edit(embed)
+    }
+  }
+
+  async messageReactionRemove(reaction: MessageReaction, user: User) {
+    if (
+      user.bot ||
+      !(user.id in GamePerUser) ||
+      GamePerUser[user.id].messageID === reaction.message.id
+    ) {
+      return
+    }
+
+    const game = GamePerUser[user.id]
+
+    if (
+      reaction.emoji.name === BluePortalEmoji &&
+      game.waitingForBluePortalDirection
+    ) {
+      game.waitingForBluePortalDirection = false
+      return
+    }
+
+    if (
+      reaction.emoji.name === OrangePortalEmoji &&
+      game.waitingForOrangePortalDirection
+    ) {
+      game.waitingForOrangePortalDirection = false
+      return
     }
   }
 }

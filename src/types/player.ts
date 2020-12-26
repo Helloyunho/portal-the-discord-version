@@ -11,4 +11,5 @@ export enum Directions {
 export interface Player {
   position: Position
   portalgun: PortalgunStates
+  health: number
 }

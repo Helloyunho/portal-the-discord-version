@@ -2,6 +2,7 @@ import { Directions, Player } from '../types/player.ts'
 import { World } from '../types/world.ts'
 import { PropTypes, GoThroughableBlocks } from '../types/other.ts'
 import { Button, Door, Portals } from '../types/props.ts'
+import { EventEmitter } from 'https://deno.land/std@0.82.0/node/events.ts'
 
 const PropToEmoji = [
   '⬛',
@@ -20,7 +21,8 @@ const PropToEmoji = [
   '🙎‍♀️',
   '🙎',
   '🔒',
-  '🔓'
+  '🔓',
+  '🟪'
 ]
 
 const deepCopyWorld = (world: World) => {
@@ -42,7 +44,14 @@ const deepCopyWorld = (world: World) => {
   return result
 }
 
-export class Game {
+export declare interface Game {
+  on(event: 'healthChange', listener: (health: number) => void): this
+  on(event: 'tick', listener: (tick: number) => void): this
+  on(event: 'dead', listener: () => void): this
+  on(event: string, listener: Function): this
+}
+
+export class Game extends EventEmitter {
   world: World
   playWorld: World
   player: Player
@@ -50,6 +59,9 @@ export class Game {
   props: Array<Door | Button>
   waitingForBluePortalDirection = false
   waitingForOrangePortalDirection = false
+  tick = 0
+  tickIntervelID = 0
+  tickVars: { [name: string]: number } = {}
   messageID?: string
 
   constructor(
@@ -58,6 +70,7 @@ export class Game {
     portals: Portals,
     props: Array<Door | Button>
   ) {
+    super()
     this.world = world
     this.playWorld = deepCopyWorld(world)
     this.player = player
@@ -87,6 +100,13 @@ export class Game {
 
     this.playWorld.field[this.player.position.y][this.player.position.x] =
       PropTypes.PLAYER
+
+    this.tickIntervelID = setInterval(() => {
+      this.tick++
+      this.emit('tick', this.tick)
+    }, 1)
+
+    this.on('tick', this.onTick)
   }
 
   get playerIsInTheWorld() {
@@ -138,6 +158,15 @@ export class Game {
         : false
 
     return blueTest && orangeTest
+  }
+
+  get health() {
+    return this.player.health
+  }
+
+  set health(health: number) {
+    this.player.health = health
+    this.emit('healthChange', this.player.health)
   }
 
   toString() {
@@ -196,101 +225,42 @@ export class Game {
       switch (direction) {
         case Directions.UP: {
           this.player.position.y = this.player.position.y - 1
-          if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.BLUE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.orange?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.orange?.y ?? this.player.position.y
-          } else if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.ORANGE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.blue?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.blue?.y ?? this.player.position.y
-          }
           break
         }
         case Directions.DOWN: {
           this.player.position.y = this.player.position.y + 1
-          if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.BLUE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.orange?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.orange?.y ?? this.player.position.y
-          } else if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.ORANGE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.blue?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.blue?.y ?? this.player.position.y
-          }
           break
         }
         case Directions.LEFT: {
           this.player.position.x = this.player.position.x - 1
-          if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.BLUE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.orange?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.orange?.y ?? this.player.position.y
-          } else if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.ORANGE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.blue?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.blue?.y ?? this.player.position.y
-          }
           break
         }
         case Directions.RIGHT: {
           this.player.position.x = this.player.position.x + 1
-          if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.BLUE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.orange?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.orange?.y ?? this.player.position.y
-          } else if (
-            this.playWorld.field[this.player.position.y][
-              this.player.position.x
-            ] === PropTypes.ORANGE_PORTAL
-          ) {
-            this.player.position.x =
-              this.portals.blue?.x ?? this.player.position.x
-            this.player.position.y =
-              this.portals.blue?.y ?? this.player.position.y
-          }
           break
         }
         default:
           return false
       }
+      if (
+        this.playWorld.field[this.player.position.y][this.player.position.x] ===
+        PropTypes.BLUE_PORTAL
+      ) {
+        this.player.position.x =
+          this.portals.orange?.x ?? this.player.position.x
+        this.player.position.y =
+          this.portals.orange?.y ?? this.player.position.y
+      } else if (
+        this.playWorld.field[this.player.position.y][this.player.position.x] ===
+        PropTypes.ORANGE_PORTAL
+      ) {
+        this.player.position.x = this.portals.blue?.x ?? this.player.position.x
+        this.player.position.y = this.portals.blue?.y ?? this.player.position.y
+      }
+
       this.playWorld.field[this.player.position.y][this.player.position.x] =
         PropTypes.PLAYER
+
       return true
     } else {
       return false
@@ -310,6 +280,7 @@ export class Game {
           this.world.field[portal.y][portal.x]
         )
       ) {
+        this.world.field[portal.y][portal.x] = PropTypes.NONE
         this.playWorld.field[portal.y][portal.x] = PropTypes.NONE
       } else {
         this.playWorld.field[portal.y][portal.x] = this.world.field[portal.y][
@@ -392,9 +363,51 @@ export class Game {
         .waitingForBluePortalDirection
         ? PropTypes.BLUE_PORTAL
         : PropTypes.ORANGE_PORTAL
+      this.world.field[portal.y][portal.x] = this.waitingForBluePortalDirection
+        ? PropTypes.BLUE_PORTAL
+        : PropTypes.ORANGE_PORTAL
+
+      if (this.waitingForBluePortalDirection) {
+        this.portals.blue = {
+          x: portal.x,
+          y: portal.y
+        }
+      } else {
+        this.portals.orange = {
+          x: portal.x,
+          y: portal.y
+        }
+      }
     }
 
     this.waitingForBluePortalDirection = false
     this.waitingForOrangePortalDirection = false
+  }
+
+  onTick(tick: number) {
+    const playerOn = this.world.field[this.player.position.y][
+      this.player.position.x
+    ]
+
+    if (playerOn === PropTypes.GOO) {
+      if (this.tickVars.goo === undefined) {
+        this.tickVars.goo = tick
+        this.health -= 20
+        return
+      } else {
+        if ((tick - this.tickVars.goo) % 1000 === 0) {
+          this.health -= 20
+        }
+      }
+    }
+
+    if (this.player.health <= 0) {
+      this.emit('dead')
+    }
+  }
+
+  close() {
+    clearInterval(this.tickIntervelID)
+    this.removeAllListeners()
   }
 }

@@ -15,7 +15,8 @@ export enum PropTypes {
   PLAYER_WITH_ORANGE_PORTALGUN = 13,
   PLAYER_WITH_BOTH_PORTALGUN = 14,
   CLOSED_DOOR = 15,
-  OPENED_DOOR = 16
+  OPENED_DOOR = 16,
+  GOO = 17
 }
 
 export const GoThroughableBlocks = [
@@ -23,7 +24,8 @@ export const GoThroughableBlocks = [
   PropTypes.ORANGE_PORTAL,
   PropTypes.NONE,
   PropTypes.CLEAR_FIELD,
-  PropTypes.OPENED_DOOR
+  PropTypes.OPENED_DOOR,
+  PropTypes.GOO
 ]
 
 export enum PortalgunStates {
