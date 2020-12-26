@@ -9,7 +9,6 @@ import {
 import { DISCORD_TOKEN } from '../config.ts'
 import { Game } from './structures/game.ts'
 import {
-  PropTypes,
   PortalgunStates,
   MovementEmojis,
   BluePortalEmoji,
@@ -17,7 +16,7 @@ import {
   PortalEmojis
 } from './types/other.ts'
 import { Directions, Player } from './types/player.ts'
-import { Portals } from './types/props.ts'
+import { Button, CubeDropper, Door, Portals, PropTypes } from './types/props.ts'
 import { World } from './types/world.ts'
 
 const GamePerUser: { [key: string]: Game } = {}
@@ -81,12 +80,6 @@ class Portal extends Client {
             continue
           } else if (i === 5) {
             row.push(PropTypes.GOO)
-          } else if (i === 1 && l === 0) {
-            row.push(PropTypes.BLUE_PORTAL)
-            continue
-          } else if (i === 3 && l === 9) {
-            row.push(PropTypes.ORANGE_PORTAL)
-            continue
           } else {
             row.push(PropTypes.NONE)
           }
@@ -100,7 +93,8 @@ class Portal extends Client {
           y: 1
         },
         portalgun: PortalgunStates.ALL,
-        health: 100
+        health: 100,
+        holding: false
       }
 
       const portals: Portals = {
@@ -114,7 +108,32 @@ class Portal extends Client {
         }
       }
 
-      const game = new Game(world, player, portals, [])
+      const props: Array<Button | Door | CubeDropper> = [
+        {
+          type: 'button',
+          activate: {
+            x: 14,
+            y: 8
+          },
+          activated: false,
+          position: {
+            x: 7,
+            y: 9
+          },
+          cube: false,
+          timer: 3000
+        },
+        {
+          type: 'door',
+          activated: false,
+          position: {
+            x: 14,
+            y: 8
+          }
+        }
+      ]
+
+      const game = new Game(world, player, portals, props)
       GamePerUser[message.author.id] = game
 
       const embed = embedMaker(game)
@@ -132,6 +151,11 @@ class Portal extends Client {
         message.channel.send('You died! And the game is closed.')
       })
 
+      game.on('timerDone', () => {
+        const embed = embedMaker(game)
+        sentMessage.edit(embed)
+      })
+
       for (const emoji of MovementEmojis) {
         await sentMessage.addReaction(emoji)
       }
@@ -145,7 +169,8 @@ class Portal extends Client {
         await sentMessage.addReaction(OrangePortalEmoji)
       }
 
-      sentMessage.addReaction('🛑')
+      await sentMessage.addReaction('🔘')
+      await sentMessage.addReaction('🛑')
     }
   }
 
@@ -165,6 +190,15 @@ class Portal extends Client {
       delete GamePerUser[user.id]
 
       reaction.message.channel.send('Game has been ended.')
+      return
+    }
+
+    if (reaction.emoji.name === '🔘') {
+      game.toggleUse()
+      reaction.message.removeReaction(reaction.emoji.name, user)
+      const embed = embedMaker(game)
+      reaction.message.edit(embed)
+      return
     }
 
     if (

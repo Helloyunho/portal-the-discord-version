@@ -1,4 +1,4 @@
-import { PropTypes } from './other.ts'
+import { PropTypes } from './props.ts'
 
 export interface World {
   field: PropTypes[][]

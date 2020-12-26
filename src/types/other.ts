@@ -1,23 +1,4 @@
-export enum PropTypes {
-  NONE = 0,
-  WALL = 1,
-  NON_PORTALABLE_WALL = 2,
-  ORANGE_PORTAL = 3,
-  BLUE_PORTAL = 4,
-  CUBE_BUTTON = 5,
-  ACTIVATED_CUBE_BUTTON = 6,
-  BUTTON = 7,
-  ACTIVATED_BUTTON = 8,
-  CUBE = 9,
-  CLEAR_FIELD = 10,
-  PLAYER = 11,
-  PLAYER_WITH_BLUE_PORTALGUN = 12,
-  PLAYER_WITH_ORANGE_PORTALGUN = 13,
-  PLAYER_WITH_BOTH_PORTALGUN = 14,
-  CLOSED_DOOR = 15,
-  OPENED_DOOR = 16,
-  GOO = 17
-}
+import { PropTypes } from './props.ts'
 
 export const GoThroughableBlocks = [
   PropTypes.BLUE_PORTAL,

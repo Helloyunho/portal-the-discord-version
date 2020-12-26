@@ -12,4 +12,5 @@ export interface Player {
   position: Position
   portalgun: PortalgunStates
   health: number
+  holding: boolean
 }

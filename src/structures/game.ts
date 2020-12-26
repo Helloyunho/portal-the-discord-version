@@ -1,7 +1,15 @@
 import { Directions, Player } from '../types/player.ts'
 import { World } from '../types/world.ts'
-import { PropTypes, GoThroughableBlocks } from '../types/other.ts'
-import { Button, Door, Portals } from '../types/props.ts'
+import { GoThroughableBlocks, Position } from '../types/other.ts'
+import {
+  Button,
+  CubeDropper,
+  Door,
+  DropableProps,
+  Portals,
+  PropTypes,
+  UsableProps
+} from '../types/props.ts'
 import { EventEmitter } from 'https://deno.land/std@0.82.0/node/events.ts'
 
 const PropToEmoji = [
@@ -22,7 +30,8 @@ const PropToEmoji = [
   '🙎',
   '🔒',
   '🔓',
-  '🟪'
+  '🟪',
+  '💁'
 ]
 
 const deepCopyWorld = (world: World) => {
@@ -48,6 +57,7 @@ export declare interface Game {
   on(event: 'healthChange', listener: (health: number) => void): this
   on(event: 'tick', listener: (tick: number) => void): this
   on(event: 'dead', listener: () => void): this
+  on(event: 'timerDone', listener: () => void): this
   on(event: string, listener: Function): this
 }
 
@@ -56,19 +66,26 @@ export class Game extends EventEmitter {
   playWorld: World
   player: Player
   portals: Portals
-  props: Array<Door | Button>
+  props: Array<Door | Button | CubeDropper>
   waitingForBluePortalDirection = false
   waitingForOrangePortalDirection = false
+  waitingForDropDirection = false
   tick = 0
   tickIntervelID = 0
-  tickVars: { [name: string]: number } = {}
+  tickVars: {
+    goo: number | null
+    props: { [id: string]: number }
+  } = {
+    goo: null,
+    props: {}
+  }
   messageID?: string
 
   constructor(
     world: World,
     player: Player,
     portals: Portals,
-    props: Array<Door | Button>
+    props: Array<Door | Button | CubeDropper>
   ) {
     super()
     this.world = world
@@ -77,7 +94,10 @@ export class Game extends EventEmitter {
     this.portals = portals
     this.props = props
 
-    if (this.toString().length > 200 || this.toString().length <= 0) {
+    if (
+      this.world.size.height * this.world.size.width > 200 ||
+      this.world.size.height * this.world.size.width <= 0
+    ) {
       throw new Error('World is too big or too small.')
     }
 
@@ -94,8 +114,56 @@ export class Game extends EventEmitter {
       throw new Error('Player is out of world.')
     }
 
+    if (this.portals.blue !== null) {
+      this.world.field[this.portals.blue.y][this.portals.blue.x] =
+        PropTypes.BLUE_PORTAL
+      this.playWorld.field[this.portals.blue.y][this.portals.blue.x] =
+        PropTypes.BLUE_PORTAL
+    }
+
+    if (this.portals.orange !== null) {
+      this.world.field[this.portals.orange.y][this.portals.orange.x] =
+        PropTypes.ORANGE_PORTAL
+      this.playWorld.field[this.portals.orange.y][this.portals.orange.x] =
+        PropTypes.ORANGE_PORTAL
+    }
+
+    props.forEach((prop) => {
+      if (
+        this.world.field[prop.position.y] === undefined ||
+        this.world.field[prop.position.y][prop.position.x] === undefined
+      ) {
+        throw new Error('Prop settings are weird.')
+      }
+      switch (prop.type) {
+        case 'button': {
+          this.world.field[prop.position.y][prop.position.x] = prop.activated
+            ? PropTypes.BUTTON
+            : PropTypes.ACTIVATED_BUTTON
+          this.playWorld.field[prop.position.y][
+            prop.position.x
+          ] = !prop.activated ? PropTypes.BUTTON : PropTypes.ACTIVATED_BUTTON
+          break
+        }
+
+        case 'cubedropper': {
+          break
+        }
+
+        case 'door': {
+          this.world.field[prop.position.y][prop.position.x] = prop.activated
+            ? PropTypes.OPENED_DOOR
+            : PropTypes.CLOSED_DOOR
+          this.playWorld.field[prop.position.y][
+            prop.position.x
+          ] = prop.activated ? PropTypes.OPENED_DOOR : PropTypes.CLOSED_DOOR
+          break
+        }
+      }
+    })
+
     if (!this.arePortalsReal) {
-      throw new Error('Portals are not in the world (or set wrong).')
+      throw new Error('Portal settings are weird.')
     }
 
     this.playWorld.field[this.player.position.y][this.player.position.x] =
@@ -215,6 +283,61 @@ export class Game extends EventEmitter {
       default:
         return false
     }
+  }
+
+  getUsablePropPosition() {
+    if (!this.playerIsInTheWorld) return []
+    const result: Position[] = []
+
+    const left = UsableProps.includes(
+      this.playWorld.field[this.player.position.y][this.player.position.x - 1]
+    )
+    const right = UsableProps.includes(
+      this.playWorld.field[this.player.position.y][this.player.position.x + 1]
+    )
+    const up =
+      this.playWorld.field[this.player.position.y - 1] !== undefined
+        ? UsableProps.includes(
+            this.playWorld.field[this.player.position.y - 1][
+              this.player.position.x
+            ]
+          )
+        : false
+    const down =
+      this.playWorld.field[this.player.position.y + 1] !== undefined
+        ? UsableProps.includes(
+            this.playWorld.field[this.player.position.y + 1][
+              this.player.position.x
+            ]
+          )
+        : false
+
+    if (left) {
+      result.push({
+        x: this.player.position.x - 1,
+        y: this.player.position.y
+      })
+    }
+    if (right) {
+      result.push({
+        x: this.player.position.x + 1,
+        y: this.player.position.y
+      })
+    }
+    if (up) {
+      result.push({
+        x: this.player.position.x,
+        y: this.player.position.y - 1
+      })
+    }
+    if (down) {
+      result.push({
+        x: this.player.position.x,
+        y: this.player.position.y + 1
+      })
+    }
+
+    return result
   }
 
   goTo(direction: Directions): boolean {
@@ -384,22 +507,170 @@ export class Game extends EventEmitter {
     this.waitingForOrangePortalDirection = false
   }
 
+  toggleUse() {
+    const propPositions: Position[] = this.getUsablePropPosition()
+
+    propPositions.forEach((propPosition) => {
+      if (propPosition === undefined) return
+
+      const prop = this.playWorld.field[propPosition.y][propPosition.x]
+
+      if (prop === undefined) {
+        return
+      } else if (prop === PropTypes.CUBE) {
+        this.player.holding = true
+        this.playWorld.field[this.player.position.y][this.player.position.x] =
+          PropTypes.PLAYER_HOLDING_A_CUBE
+        this.playWorld.field[propPosition.y][propPosition.x] = PropTypes.NONE
+        this.world.field[propPosition.y][propPosition.x] = PropTypes.NONE
+        return
+      } else if (prop === PropTypes.BUTTON) {
+        let index = 0
+        const propProperty = this.props.find((p, i) => {
+          index = i
+          return (
+            p.position.x === propPosition.x && p.position.y === propPosition.y
+          )
+        })
+
+        if (propProperty === undefined || propProperty.type !== 'button') {
+          return
+        }
+
+        if (propProperty.timer !== undefined) {
+          this.tickVars.props[
+            `${propProperty.position.x},${propProperty.position.y}`
+          ] = propProperty.timer
+        }
+
+        this.props[index] = {
+          ...propProperty,
+          activated: true
+        }
+        this.world.field[propProperty.position.y][propProperty.position.x] =
+          PropTypes.ACTIVATED_BUTTON
+        this.playWorld.field[propProperty.position.y][propProperty.position.x] =
+          PropTypes.ACTIVATED_BUTTON
+        if (propProperty.activate !== null) {
+          let index = 0
+          const target = this.props.find((p, i) => {
+            index = i
+            return (
+              p.position.x === propProperty.activate?.x &&
+              p.position.y === propProperty.activate.y
+            )
+          })
+          if (target === undefined) {
+            return
+          }
+
+          this.props[index] = {
+            ...target,
+            activated: true
+          }
+
+          if (target.type === 'door') {
+            this.world.field[target.position.y][target.position.x] =
+              PropTypes.OPENED_DOOR
+            this.playWorld.field[target.position.y][target.position.x] =
+              PropTypes.OPENED_DOOR
+          } else if (target.type === 'cubedropper') {
+            this.world.field[target.position.y][target.position.x] =
+              PropTypes.CUBE
+            this.playWorld.field[target.position.y][target.position.x] =
+              PropTypes.CUBE
+          }
+        }
+      }
+    })
+  }
+
+  // drop (direction: Directions) {
+  //   if (!this.playerIsInTheWorld) return
+
+  //   switch(direction) {
+  //     case Directions.UP: {
+  //       if (this.playWorld.field[this.player.position.y - 1] !== undefined) {
+  //         if (DROPABLE_PROPS.includes(this.playWorld.field[this.player.position.y - 1][this.player.position.x])) {
+
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
+
   onTick(tick: number) {
     const playerOn = this.world.field[this.player.position.y][
       this.player.position.x
     ]
 
     if (playerOn === PropTypes.GOO) {
-      if (this.tickVars.goo === undefined) {
+      if (this.tickVars.goo === null) {
         this.tickVars.goo = tick
         this.health -= 20
-        return
       } else {
         if ((tick - this.tickVars.goo) % 1000 === 0) {
           this.health -= 20
         }
       }
+    } else if (this.tickVars.goo !== null) {
+      this.tickVars.goo = null
     }
+
+    Object.entries(this.tickVars.props).forEach(([key, time]) => {
+      time--
+      this.tickVars.props[key] = time
+
+      if (time === 0) {
+        delete this.tickVars.props[key]
+        const [x, y] = key.split(',').map((a) => parseInt(a))
+
+        let index = 0
+        const prop = this.props.find((p, i) => {
+          index = i
+          return p.position.x === x && p.position.y === y
+        })
+
+        if (prop === undefined || prop.type !== 'button') {
+          return
+        }
+        this.props[index] = {
+          ...prop,
+          activated: false
+        }
+        this.world.field[prop.position.y][prop.position.x] = prop.cube
+          ? PropTypes.CUBE_BUTTON
+          : PropTypes.BUTTON
+        this.playWorld.field[prop.position.y][prop.position.x] = prop.cube
+          ? PropTypes.CUBE_BUTTON
+          : PropTypes.BUTTON
+
+        if (prop.activate !== null) {
+          let index = 0
+          const target = this.props.find((p, i) => {
+            index = i
+            return (
+              p.position.x === prop.activate?.x &&
+              p.position.y === prop.activate.y
+            )
+          })
+
+          if (target !== undefined && target.type !== 'button') {
+            this.props[index] = {
+              ...target,
+              activated: false
+            }
+            if (target.type === 'door') {
+              this.world.field[target.position.y][target.position.x] =
+                PropTypes.CLOSED_DOOR
+              this.playWorld.field[target.position.y][target.position.x] =
+                PropTypes.CLOSED_DOOR
+            }
+          }
+        }
+        this.emit('timerDone')
+      }
+    })
 
     if (this.player.health <= 0) {
       this.emit('dead')
