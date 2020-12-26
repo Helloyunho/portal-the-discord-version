@@ -80,6 +80,10 @@ class Portal extends Client {
             continue
           } else if (i === 5) {
             row.push(PropTypes.GOO)
+          } else if (l === 2 && i > 4) {
+            row.push(PropTypes.CLEAR_FIELD)
+          } else if (l === 7 && i === 6) {
+            row.push(PropTypes.CUBE)
           } else {
             row.push(PropTypes.NONE)
           }
@@ -120,7 +124,7 @@ class Portal extends Client {
             x: 7,
             y: 9
           },
-          cube: false,
+          cube: true,
           timer: 3000
         },
         {
@@ -193,11 +197,20 @@ class Portal extends Client {
       return
     }
 
-    if (reaction.emoji.name === '🔘') {
+    if (reaction.emoji.name === '🔘' && !game.player.holding) {
       game.toggleUse()
+      if (game.player.holding) {
+        reaction.message.removeReaction(reaction.emoji.name)
+        reaction.message.addReaction('🔻')
+      }
       reaction.message.removeReaction(reaction.emoji.name, user)
       const embed = embedMaker(game)
       reaction.message.edit(embed)
+      return
+    }
+
+    if (reaction.emoji.name === '🔻' && game.player.holding) {
+      game.waitingForDropDirection = true
       return
     }
 
@@ -222,6 +235,50 @@ class Portal extends Client {
         reaction.message.removeReaction(reaction.emoji.name, user)
       }
       game.waitingForOrangePortalDirection = true
+      return
+    }
+
+    if (
+      game.waitingForDropDirection &&
+      MovementEmojis.includes(reaction.emoji.name)
+    ) {
+      let direction: Directions
+
+      switch (reaction.emoji.name) {
+        case '⬆': {
+          reaction.message.removeReaction(reaction.emoji, user)
+          direction = Directions.UP
+          break
+        }
+        case '⬇': {
+          reaction.message.removeReaction(reaction.emoji, user)
+          direction = Directions.DOWN
+          break
+        }
+        case '⬅': {
+          reaction.message.removeReaction(reaction.emoji, user)
+          direction = Directions.LEFT
+          break
+        }
+        case '➡': {
+          reaction.message.removeReaction(reaction.emoji, user)
+          direction = Directions.RIGHT
+          break
+        }
+        default:
+          return
+      }
+
+      game.drop(direction)
+      if (!game.player.holding) {
+        reaction.message.removeReaction('🔻', user)
+        reaction.message.removeReaction('🔻')
+
+        reaction.message.addReaction('🔘')
+      }
+
+      const embed = embedMaker(game)
+      reaction.message.edit(embed)
       return
     }
 
@@ -324,6 +381,11 @@ class Portal extends Client {
       game.waitingForOrangePortalDirection
     ) {
       game.waitingForOrangePortalDirection = false
+      return
+    }
+
+    if (reaction.emoji.name === '🔻' && game.waitingForDropDirection) {
+      game.waitingForDropDirection = false
       return
     }
   }

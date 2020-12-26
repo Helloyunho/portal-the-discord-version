@@ -137,12 +137,18 @@ export class Game extends EventEmitter {
       }
       switch (prop.type) {
         case 'button': {
-          this.world.field[prop.position.y][prop.position.x] = prop.activated
-            ? PropTypes.BUTTON
+          const normalButton = prop.cube
+            ? PropTypes.CUBE_BUTTON
+            : PropTypes.BUTTON
+          const activatedButton = prop.cube
+            ? PropTypes.ACTIVATED_CUBE_BUTTON
             : PropTypes.ACTIVATED_BUTTON
+          this.world.field[prop.position.y][prop.position.x] = prop.activated
+            ? activatedButton
+            : normalButton
           this.playWorld.field[prop.position.y][
             prop.position.x
-          ] = !prop.activated ? PropTypes.BUTTON : PropTypes.ACTIVATED_BUTTON
+          ] = prop.activated ? activatedButton : normalButton
           break
         }
 
@@ -381,8 +387,34 @@ export class Game extends EventEmitter {
         this.player.position.y = this.portals.blue?.y ?? this.player.position.y
       }
 
-      this.playWorld.field[this.player.position.y][this.player.position.x] =
-        PropTypes.PLAYER
+      if (
+        this.playWorld.field[this.player.position.y][this.player.position.x] ===
+        PropTypes.CLEAR_FIELD
+      ) {
+        if (this.portals.blue !== null) {
+          this.world.field[this.portals.blue.y][this.portals.blue.x] =
+            PropTypes.NONE
+          this.playWorld.field[this.portals.blue.y][this.portals.blue.x] =
+            PropTypes.NONE
+        }
+        if (this.portals.orange !== null) {
+          this.world.field[this.portals.orange.y][this.portals.orange.x] =
+            PropTypes.NONE
+          this.playWorld.field[this.portals.orange.y][this.portals.orange.x] =
+            PropTypes.NONE
+        }
+
+        this.portals = {
+          blue: null,
+          orange: null
+        }
+      }
+
+      this.playWorld.field[this.player.position.y][
+        this.player.position.x
+      ] = this.player.holding
+        ? PropTypes.PLAYER_HOLDING_A_CUBE
+        : PropTypes.PLAYER
 
       return true
     } else {
@@ -517,21 +549,25 @@ export class Game extends EventEmitter {
 
       if (prop === undefined) {
         return
-      } else if (prop === PropTypes.CUBE) {
+      } else if (
+        prop === PropTypes.CUBE ||
+        prop === PropTypes.ACTIVATED_CUBE_BUTTON
+      ) {
         this.player.holding = true
         this.playWorld.field[this.player.position.y][this.player.position.x] =
           PropTypes.PLAYER_HOLDING_A_CUBE
-        this.playWorld.field[propPosition.y][propPosition.x] = PropTypes.NONE
-        this.world.field[propPosition.y][propPosition.x] = PropTypes.NONE
+        this.playWorld.field[propPosition.y][propPosition.x] =
+          prop === PropTypes.CUBE ? PropTypes.NONE : PropTypes.CUBE_BUTTON
+        this.world.field[propPosition.y][propPosition.x] =
+          prop === PropTypes.CUBE ? PropTypes.NONE : PropTypes.CUBE_BUTTON
         return
       } else if (prop === PropTypes.BUTTON) {
-        let index = 0
-        const propProperty = this.props.find((p, i) => {
-          index = i
+        const index = this.props.findIndex((p) => {
           return (
             p.position.x === propPosition.x && p.position.y === propPosition.y
           )
         })
+        const propProperty = this.props[index]
 
         if (propProperty === undefined || propProperty.type !== 'button') {
           return
@@ -552,14 +588,13 @@ export class Game extends EventEmitter {
         this.playWorld.field[propProperty.position.y][propProperty.position.x] =
           PropTypes.ACTIVATED_BUTTON
         if (propProperty.activate !== null) {
-          let index = 0
-          const target = this.props.find((p, i) => {
-            index = i
+          const index = this.props.findIndex((p) => {
             return (
               p.position.x === propProperty.activate?.x &&
               p.position.y === propProperty.activate.y
             )
           })
+          const target = this.props[index]
           if (target === undefined) {
             return
           }
@@ -585,19 +620,129 @@ export class Game extends EventEmitter {
     })
   }
 
-  // drop (direction: Directions) {
-  //   if (!this.playerIsInTheWorld) return
+  drop(direction: Directions) {
+    if (!this.playerIsInTheWorld) return
 
-  //   switch(direction) {
-  //     case Directions.UP: {
-  //       if (this.playWorld.field[this.player.position.y - 1] !== undefined) {
-  //         if (DROPABLE_PROPS.includes(this.playWorld.field[this.player.position.y - 1][this.player.position.x])) {
+    let x: number | undefined = undefined,
+      y: number | undefined = undefined
+    switch (direction) {
+      case Directions.UP: {
+        if (this.playWorld.field[this.player.position.y - 1] !== undefined) {
+          if (
+            DropableProps.includes(
+              this.playWorld.field[this.player.position.y - 1][
+                this.player.position.x
+              ]
+            )
+          ) {
+            x = this.player.position.x
+            y = this.player.position.y - 1
+          }
+        }
+        break
+      }
+      case Directions.DOWN: {
+        if (this.playWorld.field[this.player.position.y + 1] !== undefined) {
+          if (
+            DropableProps.includes(
+              this.playWorld.field[this.player.position.y + 1][
+                this.player.position.x
+              ]
+            )
+          ) {
+            x = this.player.position.x
+            y = this.player.position.y + 1
+          }
+        }
+        break
+      }
+      case Directions.LEFT: {
+        if (
+          DropableProps.includes(
+            this.playWorld.field[this.player.position.y][
+              this.player.position.x - 1
+            ]
+          )
+        ) {
+          x = this.player.position.x - 1
+          y = this.player.position.y
+        }
+        break
+      }
+      case Directions.RIGHT: {
+        if (
+          DropableProps.includes(
+            this.playWorld.field[this.player.position.y][
+              this.player.position.x + 1
+            ]
+          )
+        ) {
+          x = this.player.position.x + 1
+          y = this.player.position.y
+        }
+        break
+      }
+      default:
+        return
+    }
 
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+    if (y !== undefined && x !== undefined) {
+      if (this.playWorld.field[y][x] === PropTypes.CUBE_BUTTON) {
+        this.world.field[y][x] = PropTypes.ACTIVATED_CUBE_BUTTON
+        this.playWorld.field[y][x] = PropTypes.ACTIVATED_CUBE_BUTTON
+        const index = this.props.findIndex(
+          (p) => p.position.x === x && p.position.y === y
+        )
+        const prop = this.props[index]
+
+        if (prop === undefined || prop.type !== 'button') {
+          return
+        }
+
+        this.props[index] = {
+          ...prop,
+          activated: true
+        }
+
+        if (prop.activate !== null) {
+          const index = this.props.findIndex((p) => {
+            return (
+              p.position.x === prop.activate?.x &&
+              p.position.y === prop.activate.y
+            )
+          })
+          const target = this.props[index]
+          if (target === undefined) {
+            return
+          }
+
+          this.props[index] = {
+            ...target,
+            activated: true
+          }
+
+          if (target.type === 'door') {
+            this.world.field[target.position.y][target.position.x] =
+              PropTypes.OPENED_DOOR
+            this.playWorld.field[target.position.y][target.position.x] =
+              PropTypes.OPENED_DOOR
+          } else if (target.type === 'cubedropper') {
+            this.world.field[target.position.y][target.position.x] =
+              PropTypes.CUBE
+            this.playWorld.field[target.position.y][target.position.x] =
+              PropTypes.CUBE
+          }
+        }
+      } else {
+        this.world.field[y][x] = PropTypes.CUBE
+        this.playWorld.field[y][x] = PropTypes.CUBE
+      }
+
+      this.playWorld.field[this.player.position.y][this.player.position.x] =
+        PropTypes.PLAYER
+      this.player.holding = false
+    }
+  }
 
   onTick(tick: number) {
     const playerOn = this.world.field[this.player.position.y][
@@ -625,11 +770,10 @@ export class Game extends EventEmitter {
         delete this.tickVars.props[key]
         const [x, y] = key.split(',').map((a) => parseInt(a))
 
-        let index = 0
-        const prop = this.props.find((p, i) => {
-          index = i
+        const index = this.props.findIndex((p) => {
           return p.position.x === x && p.position.y === y
         })
+        const prop = this.props[index]
 
         if (prop === undefined || prop.type !== 'button') {
           return

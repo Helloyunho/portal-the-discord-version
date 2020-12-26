@@ -48,5 +48,9 @@ export interface CubeDropper {
   position: Position
 }
 
-export const UsableProps = [PropTypes.CUBE, PropTypes.BUTTON]
+export const UsableProps = [
+  PropTypes.CUBE,
+  PropTypes.BUTTON,
+  PropTypes.ACTIVATED_CUBE_BUTTON
+]
 export const DropableProps = [PropTypes.CUBE_BUTTON, PropTypes.NONE]
