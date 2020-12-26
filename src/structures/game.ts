@@ -31,7 +31,8 @@ const PropToEmoji = [
   '🔒',
   '🔓',
   '🟪',
-  '💁'
+  '💁',
+  '✅'
 ]
 
 const deepCopyWorld = (world: World) => {
@@ -58,6 +59,7 @@ export declare interface Game {
   on(event: 'tick', listener: (tick: number) => void): this
   on(event: 'dead', listener: () => void): this
   on(event: 'timerDone', listener: () => void): this
+  on(event: 'worldFinished', listener: () => void): this
   on(event: string, listener: Function): this
 }
 
@@ -408,6 +410,13 @@ export class Game extends EventEmitter {
           blue: null,
           orange: null
         }
+      }
+
+      if (
+        this.playWorld.field[this.player.position.y][this.player.position.x] ===
+        PropTypes.GOAL
+      ) {
+        this.emit('worldFinished')
       }
 
       this.playWorld.field[this.player.position.y][

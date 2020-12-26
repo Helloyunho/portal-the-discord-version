@@ -19,7 +19,8 @@ export enum PropTypes {
   CLOSED_DOOR = 15,
   OPENED_DOOR = 16,
   GOO = 17,
-  PLAYER_HOLDING_A_CUBE = 18
+  PLAYER_HOLDING_A_CUBE = 18,
+  GOAL = 19
 }
 
 export interface Portals {

@@ -6,7 +6,8 @@ export const GoThroughableBlocks = [
   PropTypes.NONE,
   PropTypes.CLEAR_FIELD,
   PropTypes.OPENED_DOOR,
-  PropTypes.GOO
+  PropTypes.GOO,
+  PropTypes.GOAL
 ]
 
 export enum PortalgunStates {

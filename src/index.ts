@@ -84,6 +84,8 @@ class Portal extends Client {
             row.push(PropTypes.CLEAR_FIELD)
           } else if (l === 7 && i === 6) {
             row.push(PropTypes.CUBE)
+          } else if (l === 7 && i === 7) {
+            row.push(PropTypes.GOAL)
           } else {
             row.push(PropTypes.NONE)
           }
@@ -175,6 +177,11 @@ class Portal extends Client {
 
       await sentMessage.addReaction('🔘')
       await sentMessage.addReaction('🛑')
+
+      game.on('worldFinished', () => {
+        game.close()
+        message.channel.send('Congrats! You have won the game!')
+      })
     }
   }
 
