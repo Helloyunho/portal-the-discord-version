@@ -49,6 +49,22 @@ export interface CubeDropper {
   position: Position
 }
 
+export const CubeButtonProps = [
+  PropTypes.CUBE_BUTTON,
+  PropTypes.ACTIVATED_CUBE_BUTTON
+]
+export const NormalButtonProps = [PropTypes.BUTTON, PropTypes.ACTIVATED_BUTTON]
+export const ActivatedButtonProps = [
+  PropTypes.ACTIVATED_CUBE_BUTTON,
+  PropTypes.ACTIVATED_BUTTON
+]
+export const InactivatedButtonProps = [PropTypes.CUBE_BUTTON, PropTypes.BUTTON]
+export const AllButtonProps = [...CubeButtonProps, ...NormalButtonProps]
+
+export const AllDoorProps = [PropTypes.CLOSED_DOOR, PropTypes.OPENED_DOOR]
+
+export const ActivatableProps = [...AllButtonProps, ...AllDoorProps]
+
 export const UsableProps = [
   PropTypes.CUBE,
   PropTypes.BUTTON,

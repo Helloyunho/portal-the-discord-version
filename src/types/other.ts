@@ -26,3 +26,8 @@ export const MovementEmojis = ['⬆', '⬇', '⬅', '➡']
 export const PortalEmojis = ['🔵', '🟠']
 export const BluePortalEmoji = '🔵'
 export const OrangePortalEmoji = '🟠'
+export const translatePerType = {
+  door: '문',
+  button: '버튼',
+  cubedropper: '큐브 드로퍼'
+}

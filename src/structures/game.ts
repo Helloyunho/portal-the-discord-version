@@ -12,9 +12,9 @@ import {
 } from '../types/props.ts'
 import { EventEmitter } from 'https://deno.land/std@0.82.0/node/events.ts'
 
-const PropToEmoji = [
+export const PropEmoji = [
   '⬛',
-  '⬜️',
+  '⬜',
   '🟫',
   '🟠',
   '🔵',
@@ -250,7 +250,7 @@ export class Game extends EventEmitter {
       .map((row) =>
         row
           .map((prop) => {
-            return PropToEmoji[prop]
+            return PropEmoji[prop]
           })
           .join('')
       )
